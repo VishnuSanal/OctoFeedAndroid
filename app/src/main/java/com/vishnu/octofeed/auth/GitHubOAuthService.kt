@@ -2,7 +2,7 @@ package com.vishnu.octofeed.auth
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -23,10 +23,10 @@ class GitHubOAuthService(private val context: Context) {
      * Start the OAuth flow by opening GitHub's authorization page in a browser
      */
     fun startOAuthFlow() {
-        val authUrl = Uri.parse(GitHubOAuthConfig.AUTHORIZATION_URL).buildUpon()
+        val authUrl = GitHubOAuthConfig.AUTHORIZATION_URL.toUri().buildUpon()
             .appendQueryParameter("client_id", GitHubOAuthConfig.CLIENT_ID)
             .appendQueryParameter("redirect_uri", GitHubOAuthConfig.REDIRECT_URI)
-            .appendQueryParameter("scope", "user:email read:user")
+            .appendQueryParameter("scope", "user:email read:user public_repo notifications")
             .build()
 
         val intent = Intent(Intent.ACTION_VIEW, authUrl)

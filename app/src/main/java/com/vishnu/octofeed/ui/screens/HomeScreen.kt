@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -165,7 +166,11 @@ fun HomeScreen(
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
                         items(state.events, key = { it.id }) { event ->
-                            EventCard(event = event)
+                            EventCard(
+                                event = event,
+                                viewModel = viewModel,
+                                accessToken = accessToken
+                            )
                         }
                     }
                 }
@@ -175,8 +180,28 @@ fun HomeScreen(
 }
 
 @Composable
-fun EventCard(event: GitHubEvent) {
+fun EventCard(
+    event: GitHubEvent,
+    viewModel: FeedViewModel,
+    accessToken: String
+) {
     val uriHandler = LocalUriHandler.current
+    val repoDetails by viewModel.repoDetailsCache.collectAsState()
+    val starredRepos by viewModel.starredCache.collectAsState()
+
+    // Load repository details for events that should show them
+    val shouldShowRepoDetails = event.type in listOf(
+        "WatchEvent", "ForkEvent", "PublicEvent", "CreateEvent"
+    )
+
+    LaunchedEffect(event.repo.name) {
+        if (shouldShowRepoDetails) {
+            viewModel.loadRepositoryDetails(event.repo.name, accessToken)
+            viewModel.checkIfStarred(event.repo.name, accessToken)
+        }
+    }
+
+    val repoDetail = repoDetails[event.repo.name]
 
     Card(
         modifier = Modifier
@@ -187,89 +212,347 @@ fun EventCard(event: GitHubEvent) {
             containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp)
         ) {
-            // User Avatar
-            AsyncImage(
-                model = event.actor.avatarUrl,
-                contentDescription = "Avatar of ${event.actor.login}",
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .clickable {
-                        uriHandler.openUri("https://github.com/${event.actor.login}")
+            Row(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // User Avatar
+                AsyncImage(
+                    model = event.actor.avatarUrl,
+                    contentDescription = "Avatar of ${event.actor.login}",
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .clickable {
+                            uriHandler.openUri("https://github.com/${event.actor.login}")
+                        }
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentScale = ContentScale.Crop
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Event Content
+                Column(modifier = Modifier.weight(1f)) {
+                    // Username and time
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = event.actor.login,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .clickable {
+                                    uriHandler.openUri("https://github.com/${event.actor.login}")
+                                },
+                            textDecoration = TextDecoration.Underline
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = formatTimestamp(event.createdAt),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentScale = ContentScale.Crop
-            )
 
-            Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-            // Event Content
-            Column(modifier = Modifier.weight(1f)) {
-                // Username and time
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    // Event description
+                    EventDescriptionText(event = event, uriHandler = uriHandler)
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // Repository name with icon/chip style
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(MaterialTheme.shapes.small)
+                            .clickable {
+                                uriHandler.openUri("https://github.com/${event.repo.name}")
+                            }
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "📦",
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = event.repo.name,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            // Show enhanced repository details for specific events
+            if (shouldShowRepoDetails && repoDetail != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                EnhancedRepositoryCard(
+                    repoDetails = repoDetail,
+                    isStarred = starredRepos[event.repo.name] ?: false,
+                    onStarClick = {
+                        viewModel.toggleStar(event.repo.name, accessToken)
+                    },
+                    onRepoClick = {
+                        uriHandler.openUri("https://github.com/${event.repo.name}")
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun EnhancedRepositoryCard(
+    repoDetails: com.vishnu.octofeed.data.RepositoryDetails,
+    isStarred: Boolean,
+    onStarClick: () -> Unit,
+    onRepoClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onRepoClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            // Repository name and owner
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = repoDetails.fullName,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                // Star button
+                Button(
+                    onClick = onStarClick,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isStarred)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.surface,
+                        contentColor = if (isStarred)
+                            MaterialTheme.colorScheme.onPrimary
+                        else
+                            MaterialTheme.colorScheme.onSurface
+                    ),
+                    modifier = Modifier.height(36.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = event.actor.login,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .clickable {
-                                uriHandler.openUri("https://github.com/${event.actor.login}")
-                            },
-                        textDecoration = TextDecoration.Underline
+                        text = if (isStarred) "⭐ Starred" else "☆ Star",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                }
+            }
+
+            // Description
+            if (!repoDetails.description.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = repoDetails.description,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 18.sp,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Stats row
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Language
+                if (!repoDetails.language.isNullOrEmpty()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(getLanguageColor(repoDetails.language))
+                        )
+                        Text(
+                            text = repoDetails.language,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Stars
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Text(
-                        text = formatTimestamp(event.createdAt),
+                        text = "⭐",
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = formatNumber(repoDetails.stargazersCount),
                         fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                // Forks
+                if (repoDetails.forksCount > 0) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "🍴",
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = formatNumber(repoDetails.forksCount),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
 
-                // Event description
-                EventDescriptionText(event = event, uriHandler = uriHandler)
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Repository name with icon/chip style
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(MaterialTheme.shapes.small)
-                        .clickable {
-                            uriHandler.openUri("https://github.com/${event.repo.name}")
-                        }
-                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "📦",
-                        fontSize = 12.sp
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = event.repo.name,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                // Issues
+                if (repoDetails.openIssuesCount > 0) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "🐛",
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = formatNumber(repoDetails.openIssuesCount),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
+
+            // Topics
+            if (!repoDetails.topics.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    repoDetails.topics.take(3).forEach { topic ->
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.small)
+                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = topic,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                    if (repoDetails.topics.size > 3) {
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.small)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "+${repoDetails.topics.size - 3}",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
+
+            // License
+            if (repoDetails.license != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "📄 ${repoDetails.license.name}",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
+    }
+}
+
+fun getLanguageColor(language: String): androidx.compose.ui.graphics.Color {
+    return when (language.lowercase()) {
+        "kotlin" -> androidx.compose.ui.graphics.Color(0xFFA97BFF)
+        "java" -> androidx.compose.ui.graphics.Color(0xFFB07219)
+        "javascript" -> androidx.compose.ui.graphics.Color(0xFFF1E05A)
+        "typescript" -> androidx.compose.ui.graphics.Color(0xFF2B7489)
+        "python" -> androidx.compose.ui.graphics.Color(0xFF3572A5)
+        "go" -> androidx.compose.ui.graphics.Color(0xFF00ADD8)
+        "rust" -> androidx.compose.ui.graphics.Color(0xFFDEA584)
+        "c++" -> androidx.compose.ui.graphics.Color(0xFFF34B7D)
+        "c" -> androidx.compose.ui.graphics.Color(0xFF555555)
+        "ruby" -> androidx.compose.ui.graphics.Color(0xFF701516)
+        "swift" -> androidx.compose.ui.graphics.Color(0xFFFFAC45)
+        "php" -> androidx.compose.ui.graphics.Color(0xFF4F5D95)
+        "html" -> androidx.compose.ui.graphics.Color(0xFFE34C26)
+        "css" -> androidx.compose.ui.graphics.Color(0xFF563D7C)
+        "shell" -> androidx.compose.ui.graphics.Color(0xFF89E051)
+        "dart" -> androidx.compose.ui.graphics.Color(0xFF00B4AB)
+        else -> androidx.compose.ui.graphics.Color(0xFF808080)
+    }
+}
+
+fun formatNumber(number: Int): String {
+    return when {
+        number >= 1000000 -> String.format("%.1fM", number / 1000000.0)
+        number >= 1000 -> String.format("%.1fk", number / 1000.0)
+        else -> number.toString()
     }
 }
 
