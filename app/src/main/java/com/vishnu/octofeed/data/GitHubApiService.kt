@@ -183,5 +183,95 @@ class GitHubApiService {
                 Result.failure(e)
             }
         }
+
+    suspend fun getFollowers(
+        username: String,
+        accessToken: String
+    ): Result<List<UserFollower>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("https://api.github.com/users/$username/followers?per_page=30")
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Accept", "application/vnd.github.v3+json")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@withContext Result.failure(
+                            IOException("Failed to fetch followers: ${response.code}")
+                        )
+                    }
+
+                    val responseBody = response.body?.string()
+                        ?: return@withContext Result.failure(IOException("Empty response body"))
+
+                    val followers = json.decodeFromString<List<UserFollower>>(responseBody)
+                    Result.success(followers)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    suspend fun getFollowing(
+        username: String,
+        accessToken: String
+    ): Result<List<UserFollowing>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("https://api.github.com/users/$username/following?per_page=30")
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Accept", "application/vnd.github.v3+json")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@withContext Result.failure(
+                            IOException("Failed to fetch following: ${response.code}")
+                        )
+                    }
+
+                    val responseBody = response.body?.string()
+                        ?: return@withContext Result.failure(IOException("Empty response body"))
+
+                    val following = json.decodeFromString<List<UserFollowing>>(responseBody)
+                    Result.success(following)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    suspend fun getUserFollowing(
+        username: String,
+        accessToken: String
+    ): Result<List<UserFollowing>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("https://api.github.com/users/$username/following?per_page=10")
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Accept", "application/vnd.github.v3+json")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@withContext Result.failure(
+                            IOException("Failed to fetch user following: ${response.code}")
+                        )
+                    }
+
+                    val responseBody = response.body?.string()
+                        ?: return@withContext Result.failure(IOException("Empty response body"))
+
+                    val following = json.decodeFromString<List<UserFollowing>>(responseBody)
+                    Result.success(following)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
 }
 

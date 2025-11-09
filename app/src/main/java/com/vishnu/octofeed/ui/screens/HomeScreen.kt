@@ -46,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.vishnu.octofeed.auth.TokenManager
+import com.vishnu.octofeed.data.FollowerEvent
+import com.vishnu.octofeed.data.FollowerEventType
 import com.vishnu.octofeed.data.GitHubEvent
 import com.vishnu.octofeed.ui.viewmodel.FeedUiState
 import com.vishnu.octofeed.ui.viewmodel.FeedViewModel
@@ -135,7 +137,7 @@ fun HomeScreen(
             }
 
             is FeedUiState.Success -> {
-                if (state.events.isEmpty()) {
+                if (state.events.isEmpty() && state.followerEvents.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -165,6 +167,14 @@ fun HomeScreen(
                             .padding(paddingValues),
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
+                        // Show follower events first
+                        items(state.followerEvents, key = { "follower_${it.user.login}_${it.timestamp}" }) { followerEvent ->
+                            FollowerEventCard(
+                                followerEvent = followerEvent
+                            )
+                        }
+
+                        // Then show regular events
                         items(state.events, key = { it.id }) { event ->
                             EventCard(
                                 event = event,
@@ -1019,6 +1029,171 @@ fun EventDescriptionText(event: GitHubEvent, uriHandler: androidx.compose.ui.pla
 // Extension function for capitalize
 private fun String.capitalize(): String {
     return this.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+}
+
+@Composable
+fun FollowerEventCard(
+    followerEvent: FollowerEvent
+) {
+    val uriHandler = LocalUriHandler.current
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // User Avatar
+                AsyncImage(
+                    model = followerEvent.user.avatarUrl,
+                    contentDescription = "Avatar of ${followerEvent.user.login}",
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .clickable {
+                            uriHandler.openUri("https://github.com/${followerEvent.user.login}")
+                        }
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentScale = ContentScale.Crop
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Event Content
+                Column(modifier = Modifier.weight(1f)) {
+                    when (followerEvent.type) {
+                        FollowerEventType.NEW_FOLLOWER -> {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = followerEvent.user.login,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable {
+                                        uriHandler.openUri("https://github.com/${followerEvent.user.login}")
+                                    },
+                                    textDecoration = TextDecoration.Underline
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "started following you",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(MaterialTheme.shapes.small)
+                                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "👥 New Follower",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        FollowerEventType.FOLLOWING_ACTIVITY -> {
+                            if (followerEvent.targetUser != null) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = followerEvent.user.login,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.clickable {
+                                            uriHandler.openUri("https://github.com/${followerEvent.user.login}")
+                                        },
+                                        textDecoration = TextDecoration.Underline
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "started following",
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = followerEvent.targetUser.login,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 14.sp,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.clickable {
+                                            uriHandler.openUri("https://github.com/${followerEvent.targetUser.login}")
+                                        },
+                                        textDecoration = TextDecoration.Underline
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Show target user avatar
+                                    AsyncImage(
+                                        model = followerEvent.targetUser.avatarUrl,
+                                        contentDescription = "Avatar of ${followerEvent.targetUser.login}",
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .clickable {
+                                                uriHandler.openUri("https://github.com/${followerEvent.targetUser.login}")
+                                            }
+                                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clip(MaterialTheme.shapes.small)
+                                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = "🔔 Following Activity",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Timestamp
+                Text(
+                    text = formatTimestamp(followerEvent.timestamp),
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
+        }
+    }
 }
 
 fun formatTimestamp(timestamp: String): String {

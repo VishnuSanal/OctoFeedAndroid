@@ -117,6 +117,45 @@ data class License(
 )
 
 @Serializable
+data class UserFollower(
+    val login: String,
+    val id: Long,
+    @SerialName("avatar_url")
+    val avatarUrl: String,
+    @SerialName("html_url")
+    val htmlUrl: String,
+    val type: String? = null,
+    @SerialName("site_admin")
+    val siteAdmin: Boolean? = null
+)
+
+@Serializable
+data class UserFollowing(
+    val login: String,
+    val id: Long,
+    @SerialName("avatar_url")
+    val avatarUrl: String,
+    @SerialName("html_url")
+    val htmlUrl: String,
+    val type: String? = null,
+    @SerialName("site_admin")
+    val siteAdmin: Boolean? = null
+)
+
+// Custom event type for follower activities
+data class FollowerEvent(
+    val type: FollowerEventType,
+    val user: UserFollower,
+    val targetUser: UserFollower? = null, // For "X started following Y" cases
+    val timestamp: String
+)
+
+enum class FollowerEventType {
+    NEW_FOLLOWER,           // Someone started following the authenticated user
+    FOLLOWING_ACTIVITY      // Someone you follow started following someone else
+}
+
+@Serializable
 data class Org(
     val id: Long,
     val login: String,
