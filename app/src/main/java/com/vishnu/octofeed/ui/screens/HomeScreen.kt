@@ -1,6 +1,7 @@
 package com.vishnu.octofeed.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,14 +17,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -37,11 +35,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -178,6 +176,8 @@ fun HomeScreen(
 
 @Composable
 fun EventCard(event: GitHubEvent) {
+    val uriHandler = LocalUriHandler.current
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -199,6 +199,9 @@ fun EventCard(event: GitHubEvent) {
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
+                    .clickable {
+                        uriHandler.openUri("https://github.com/${event.actor.login}")
+                    }
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentScale = ContentScale.Crop
             )
@@ -217,8 +220,13 @@ fun EventCard(event: GitHubEvent) {
                         text = event.actor.login,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f, fill = false)
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .clickable {
+                                uriHandler.openUri("https://github.com/${event.actor.login}")
+                            },
+                        textDecoration = TextDecoration.Underline
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
@@ -231,12 +239,7 @@ fun EventCard(event: GitHubEvent) {
                 Spacer(modifier = Modifier.height(4.dp))
 
                 // Event description
-                Text(
-                    text = getEventDescription(event),
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 20.sp
-                )
+                EventDescriptionText(event = event, uriHandler = uriHandler)
 
                 Spacer(modifier = Modifier.height(6.dp))
 
@@ -245,6 +248,9 @@ fun EventCard(event: GitHubEvent) {
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(MaterialTheme.shapes.small)
+                        .clickable {
+                            uriHandler.openUri("https://github.com/${event.repo.name}")
+                        }
                         .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
@@ -267,13 +273,21 @@ fun EventCard(event: GitHubEvent) {
     }
 }
 
-fun getEventDescription(event: GitHubEvent): String {
-    return when (event.type) {
+@Composable
+fun EventDescriptionText(event: GitHubEvent, uriHandler: androidx.compose.ui.platform.UriHandler) {
+    val repoName = event.repo.name
+
+    when (event.type) {
         "PushEvent" -> {
             val size = event.payload?.size ?: 0
             val branch = event.payload?.ref?.removePrefix("refs/heads/") ?: "main"
             val commits = if (size == 1) "commit" else "commits"
-            "🔨 Pushed $size $commits to $branch"
+            Text(
+                text = "🔨 Pushed $size $commits to $branch",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 20.sp
+            )
         }
 
         "PullRequestEvent" -> {
@@ -294,12 +308,36 @@ fun getEventDescription(event: GitHubEvent): String {
                 else -> action
             }
 
-            if (number != null && title != null) {
-                "$emoji ${actionText.capitalize()} PR #$number: ${title.take(60)}${if (title.length > 60) "..." else ""}"
-            } else if (number != null) {
-                "$emoji ${actionText.capitalize()} pull request #$number"
-            } else {
-                "$emoji ${actionText.capitalize()} a pull request"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "$emoji ${actionText.capitalize()} PR ",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
+                if (number != null) {
+                    Text(
+                        text = "#$number",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            uriHandler.openUri("https://github.com/$repoName/pull/$number")
+                        },
+                        textDecoration = TextDecoration.Underline
+                    )
+                }
+                if (title != null) {
+                    Text(
+                        text = ": ${title.take(60)}${if (title.length > 60) "..." else ""}",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp
+                    )
+                }
             }
         }
 
@@ -318,19 +356,62 @@ fun getEventDescription(event: GitHubEvent): String {
                 "changes_requested" -> "requested changes on"
                 else -> "reviewed"
             }
-            if (number != null) {
-                "$emoji ${action.capitalize()} PR #$number"
-            } else {
-                "$emoji ${action.capitalize()} a pull request"
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "$emoji ${action.capitalize()} PR ",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
+                if (number != null) {
+                    Text(
+                        text = "#$number",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            uriHandler.openUri("https://github.com/$repoName/pull/$number")
+                        },
+                        textDecoration = TextDecoration.Underline
+                    )
+                }
             }
         }
 
         "PullRequestReviewCommentEvent" -> {
             val number = event.payload?.pullRequest?.number
-            if (number != null) {
-                "💬 Commented on PR #$number review"
-            } else {
-                "💬 Commented on a pull request review"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "💬 Commented on PR ",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
+                if (number != null) {
+                    Text(
+                        text = "#$number",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            uriHandler.openUri("https://github.com/$repoName/pull/$number")
+                        },
+                        textDecoration = TextDecoration.Underline
+                    )
+                    Text(
+                        text = " review",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp
+                    )
+                }
             }
         }
 
@@ -345,38 +426,116 @@ fun getEventDescription(event: GitHubEvent): String {
                 else -> "📋"
             }
 
-            if (number != null && title != null) {
-                "$emoji ${action.capitalize()} issue #$number: ${title.take(60)}${if (title.length > 60) "..." else ""}"
-            } else if (number != null) {
-                "$emoji ${action.capitalize()} issue #$number"
-            } else {
-                "$emoji ${action.capitalize()} an issue"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "$emoji ${action.capitalize()} issue ",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
+                if (number != null) {
+                    Text(
+                        text = "#$number",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            uriHandler.openUri("https://github.com/$repoName/issues/$number")
+                        },
+                        textDecoration = TextDecoration.Underline
+                    )
+                }
+                if (title != null) {
+                    Text(
+                        text = ": ${title.take(60)}${if (title.length > 60) "..." else ""}",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp
+                    )
+                }
             }
         }
 
         "IssueCommentEvent" -> {
             val number = event.payload?.issue?.number
             val commentBody = event.payload?.comment?.body
-            if (number != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "💬 Commented on issue ",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
+                if (number != null) {
+                    Text(
+                        text = "#$number",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            uriHandler.openUri("https://github.com/$repoName/issues/$number")
+                        },
+                        textDecoration = TextDecoration.Underline
+                    )
+                }
                 val preview = commentBody?.take(80)?.replace("\n", " ")
                 if (preview != null) {
-                    "💬 Commented on issue #$number: \"$preview${if (commentBody.length > 80) "...\"" else "\""}"
-                } else {
-                    "💬 Commented on issue #$number"
+                    Text(
+                        text = ": \"$preview${if (commentBody.length > 80) "...\"" else "\""}",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp
+                    )
                 }
-            } else {
-                "💬 Commented on an issue"
             }
         }
 
-        "WatchEvent" -> "⭐ Starred the repository"
+        "WatchEvent" -> {
+            Text(
+                text = "⭐ Starred the repository",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 20.sp
+            )
+        }
 
         "ForkEvent" -> {
             val forkee = event.payload?.forkee
             if (forkee != null) {
-                "🍴 Forked to ${forkee.owner?.login}/${forkee.name}"
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "🍴 Forked to ",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp
+                    )
+                    Text(
+                        text = "${forkee.owner?.login}/${forkee.name}",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            uriHandler.openUri("https://github.com/${forkee.owner?.login}/${forkee.name}")
+                        },
+                        textDecoration = TextDecoration.Underline
+                    )
+                }
             } else {
-                "🍴 Forked the repository"
+                Text(
+                    text = "🍴 Forked the repository",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
             }
         }
 
@@ -388,10 +547,76 @@ fun getEventDescription(event: GitHubEvent): String {
                 "tag" -> "🏷️"
                 else -> "📦"
             }
-            if (ref != null) {
-                "$emoji Created $refType \"$ref\""
+            if (ref != null && refType == "branch") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "$emoji Created $refType \"",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp
+                    )
+                    Text(
+                        text = ref,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            uriHandler.openUri("https://github.com/$repoName/tree/$ref")
+                        },
+                        textDecoration = TextDecoration.Underline
+                    )
+                    Text(
+                        text = "\"",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp
+                    )
+                }
+            } else if (ref != null && refType == "tag") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "$emoji Created $refType \"",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp
+                    )
+                    Text(
+                        text = ref,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            uriHandler.openUri("https://github.com/$repoName/releases/tag/$ref")
+                        },
+                        textDecoration = TextDecoration.Underline
+                    )
+                    Text(
+                        text = "\"",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp
+                    )
+                }
+            } else if (ref != null) {
+                Text(
+                    text = "$emoji Created $refType \"$ref\"",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
             } else {
-                "$emoji Created $refType"
+                Text(
+                    text = "$emoji Created $refType",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
             }
         }
 
@@ -403,38 +628,108 @@ fun getEventDescription(event: GitHubEvent): String {
                 "tag" -> "🗑️"
                 else -> "🗑️"
             }
-            if (ref != null) {
-                "$emoji Deleted $refType \"$ref\""
-            } else {
-                "$emoji Deleted $refType"
-            }
+            Text(
+                text = if (ref != null) "$emoji Deleted $refType \"$ref\"" else "$emoji Deleted $refType",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 20.sp
+            )
         }
 
-        "PublicEvent" -> "🌍 Made repository public"
-        
+        "PublicEvent" -> {
+            Text(
+                text = "🌍 Made repository public",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 20.sp
+            )
+        }
+
         "MemberEvent" -> {
             val action = event.payload?.action ?: "added"
             val member = event.payload?.member
             if (member != null) {
-                "👥 ${action.capitalize()} @${member.login} as collaborator"
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "👥 ${action.capitalize()} ",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp
+                    )
+                    Text(
+                        text = "@${member.login}",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            uriHandler.openUri("https://github.com/${member.login}")
+                        },
+                        textDecoration = TextDecoration.Underline
+                    )
+                    Text(
+                        text = " as collaborator",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp
+                    )
+                }
             } else {
-                "👥 ${action.capitalize()} a collaborator"
+                Text(
+                    text = "👥 ${action.capitalize()} a collaborator",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
             }
         }
 
         "ReleaseEvent" -> {
             val action = event.payload?.action ?: "published"
             val release = event.payload?.release
-            if (release?.name != null) {
-                "🚀 ${action.capitalize()} release \"${release.name}\""
-            } else if (release?.tagName != null) {
-                "🚀 ${action.capitalize()} release ${release.tagName}"
+            if (release?.name != null || release?.tagName != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "🚀 ${action.capitalize()} release ",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp
+                    )
+                    Text(
+                        text = "\"${release.name ?: release.tagName}\"",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable {
+                            val tag = release.tagName ?: ""
+                            uriHandler.openUri("https://github.com/$repoName/releases/tag/$tag")
+                        },
+                        textDecoration = TextDecoration.Underline
+                    )
+                }
             } else {
-                "🚀 ${action.capitalize()} a release"
+                Text(
+                    text = "🚀 ${action.capitalize()} a release",
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
+                )
             }
         }
 
-        else -> "📌 ${event.type.replace("Event", "")}"
+        else -> {
+            Text(
+                text = "📌 ${event.type.replace("Event", "")}",
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 20.sp
+            )
+        }
     }
 }
 
