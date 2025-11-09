@@ -7,7 +7,7 @@ import kotlinx.serialization.json.JsonElement
 /**
  * Generated data classes for the provided GitHub Events payload.
  *
- * These classes are compatible with kotlinx.serialization.
+ * warning: AI generated - might have hallucinated!!
  *
  * Notes:
  * - Most fields are nullable because the payload is heterogeneous (different event types include different fields).
@@ -124,6 +124,15 @@ data class Payload(
     val issue: Issue? = null,
     val comment: Comment? = null,
 
+    // Fork events
+    val forkee: Forkee? = null,
+
+    // Member events
+    val member: UserSummary? = null,
+
+    // Release events
+    val release: Release? = null,
+
     // WatchEvent
     val repository: JsonElement? = null, // unused in sample but kept generic
 
@@ -170,7 +179,22 @@ data class PullRequest(
     val id: Long? = null,
     val number: Int? = null,
     val head: PRBranch? = null,
-    val base: PRBranch? = null
+    val base: PRBranch? = null,
+    val title: String? = null,
+    val merged: Boolean? = null,
+    @SerialName("merged_at")
+    val mergedAt: String? = null,
+    val state: String? = null,
+    val user: UserSummary? = null,
+    val body: String? = null,
+    @SerialName("created_at")
+    val createdAt: String? = null,
+    @SerialName("updated_at")
+    val updatedAt: String? = null,
+    @SerialName("closed_at")
+    val closedAt: String? = null,
+    @SerialName("html_url")
+    val htmlUrl: String? = null
 )
 
 @Serializable
@@ -351,4 +375,43 @@ data class Reactions(
     val heart: Int? = null,
     val rocket: Int? = null,
     val eyes: Int? = null
+)
+
+@Serializable
+data class Forkee(
+    val id: Long? = null,
+    val name: String? = null,
+    @SerialName("full_name")
+    val fullName: String? = null,
+    val owner: UserSummary? = null,
+    val `private`: Boolean? = null,
+    @SerialName("html_url")
+    val htmlUrl: String? = null,
+    val description: String? = null,
+    val fork: Boolean? = null,
+    val url: String? = null,
+    @SerialName("created_at")
+    val createdAt: String? = null,
+    @SerialName("updated_at")
+    val updatedAt: String? = null,
+    @SerialName("pushed_at")
+    val pushedAt: String? = null
+)
+
+@Serializable
+data class Release(
+    val id: Long? = null,
+    @SerialName("tag_name")
+    val tagName: String? = null,
+    val name: String? = null,
+    val body: String? = null,
+    val draft: Boolean? = null,
+    val prerelease: Boolean? = null,
+    @SerialName("created_at")
+    val createdAt: String? = null,
+    @SerialName("published_at")
+    val publishedAt: String? = null,
+    @SerialName("html_url")
+    val htmlUrl: String? = null,
+    val author: UserSummary? = null
 )
