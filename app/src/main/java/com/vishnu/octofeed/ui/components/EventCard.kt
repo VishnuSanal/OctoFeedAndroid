@@ -7,15 +7,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Star
@@ -40,7 +38,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -63,11 +60,12 @@ fun EventCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Row(
             modifier = Modifier
@@ -75,29 +73,36 @@ fun EventCard(
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Avatar - clickable to user profile
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(event.actor.avatarUrl)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = "${event.actor.login} avatar",
+            // Avatar with better Material 3 styling
+            Box(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .clickable {
-                        val intent = Intent(
-                            Intent.ACTION_VIEW,
-                            "https://github.com/${event.actor.login}".toUri()
-                        )
-                        context.startActivity(intent)
-                    }
-            )
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(event.actor.avatarUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "${event.actor.login} avatar",
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .clickable {
+                            val intent = Intent(
+                                Intent.ACTION_VIEW,
+                                "https://github.com/${event.actor.login}".toUri()
+                            )
+                            context.startActivity(intent)
+                        }
+                )
+            }
 
             // Content
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 // Event-specific content
                 when (event) {
@@ -124,19 +129,17 @@ fun EventCard(
                         onStarToggle,
                         onCheckStarStatus
                     )
+
                     is FeedEvent.FollowEvent -> FollowEventContent(event)
                 }
 
-                // Timestamp
+                // Timestamp with Material 3 label style
                 Text(
                     text = formatTimestamp(event.timestamp),
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            // Icon
-            EventIcon(event)
         }
     }
 }
@@ -154,13 +157,13 @@ private fun StarEventContent(
             append(event.actor.login)
             append(" starred ")
         },
-        fontSize = 14.sp,
+        style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
     Text(
         text = event.repo.name,
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Bold,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.clickable {
             val intent = Intent(Intent.ACTION_VIEW, "https://github.com/${event.repo.name}".toUri())
@@ -182,13 +185,13 @@ private fun ForkEventContent(
 
     Text(
         text = "${event.actor.login} forked",
-        fontSize = 14.sp,
+        style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
     Text(
         text = event.repo.name,
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Bold,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.clickable {
             val intent = Intent(Intent.ACTION_VIEW, "https://github.com/${event.repo.name}".toUri())
@@ -198,7 +201,7 @@ private fun ForkEventContent(
     event.forkedRepo?.let {
         Text(
             text = "to $it",
-            fontSize = 12.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -217,13 +220,13 @@ private fun CreateRepoEventContent(
 
     Text(
         text = "${event.actor.login} created repository",
-        fontSize = 14.sp,
+        style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
     Text(
         text = event.repo.name,
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Bold,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.clickable {
             val intent = Intent(Intent.ACTION_VIEW, "https://github.com/${event.repo.name}".toUri())
@@ -245,13 +248,13 @@ private fun ReleaseEventContent(
 
     Text(
         text = "${event.actor.login} released ${event.tagName} in",
-        fontSize = 14.sp,
+        style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
     Text(
         text = event.repo.name,
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Bold,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.clickable {
             val intent = Intent(Intent.ACTION_VIEW, "https://github.com/${event.repo.name}".toUri())
@@ -261,7 +264,7 @@ private fun ReleaseEventContent(
     if (event.releaseName != event.tagName) {
         Text(
             text = event.releaseName,
-            fontSize = 12.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -272,38 +275,21 @@ private fun ReleaseEventContent(
 
 @Composable
 private fun FollowEventContent(event: FeedEvent.FollowEvent) {
+    val context = LocalContext.current
+
     Text(
         text = "${event.actor.login} started following you",
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.clickable {
+            val intent = Intent(
+                Intent.ACTION_VIEW,
+                "https://github.com/${event.actor.login}".toUri()
+            )
+            context.startActivity(intent)
+        }
     )
-}
-
-@Composable
-private fun EventIcon(event: FeedEvent) {
-    val (icon, tint) = when (event) {
-        is FeedEvent.StarEvent -> Icons.Default.Star to MaterialTheme.colorScheme.primary
-        is FeedEvent.ForkEvent -> Icons.Default.Share to MaterialTheme.colorScheme.secondary
-        is FeedEvent.CreateRepoEvent -> Icons.Default.Add to MaterialTheme.colorScheme.tertiary
-        is FeedEvent.ReleaseEvent -> Icons.Default.Settings to MaterialTheme.colorScheme.primary
-        is FeedEvent.FollowEvent -> Icons.Default.Person to MaterialTheme.colorScheme.secondary
-    }
-
-    Box(
-        modifier = Modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(tint.copy(alpha = 0.1f)),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = tint,
-            modifier = Modifier.size(20.dp)
-        )
-    }
 }
 
 @Composable
@@ -326,31 +312,32 @@ private fun RepoDetailsContent(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 8.dp),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        tonalElevation = 2.dp
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Header row with star button
+            // Header row with description and star button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 // Description
-                details.description?.let { desc ->
-                    if (desc.isNotBlank()) {
-                        Text(
-                            text = desc,
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                if (details.description.isNullOrBlank()) {
+                    Spacer(Modifier.weight(1f))
+                } else {
+                    Text(
+                        text = details.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
 
                 // Star button
@@ -365,12 +352,14 @@ private fun RepoDetailsContent(
                                 }
                             }
                         },
-                        enabled = isStarred != null && !isLoading
+                        enabled = isStarred != null && !isLoading,
+                        modifier = Modifier.size(40.dp)
                     ) {
                         when {
                             isLoading -> CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
                             )
 
                             isStarred == true -> Icon(
@@ -409,7 +398,7 @@ private fun RepoDetailsContent(
                         )
                         Text(
                             text = lang,
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -429,7 +418,7 @@ private fun RepoDetailsContent(
                         )
                         Text(
                             text = formatCount(details.stargazersCount),
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -449,7 +438,7 @@ private fun RepoDetailsContent(
                         )
                         Text(
                             text = formatCount(details.forksCount),
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -460,25 +449,26 @@ private fun RepoDetailsContent(
             if (details.topics.isNotEmpty()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     details.topics.take(3).forEach { topic ->
                         Surface(
-                            shape = RoundedCornerShape(4.dp),
+                            shape = RoundedCornerShape(6.dp),
                             color = MaterialTheme.colorScheme.primaryContainer
                         ) {
                             Text(
                                 text = topic,
-                                fontSize = 10.sp,
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
                     }
                     if (details.topics.size > 3) {
                         Text(
                             text = "+${details.topics.size - 3}",
-                            fontSize = 10.sp,
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }

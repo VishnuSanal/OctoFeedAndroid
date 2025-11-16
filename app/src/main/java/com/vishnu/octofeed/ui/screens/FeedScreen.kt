@@ -33,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.vishnu.octofeed.ui.components.EventCard
 import com.vishnu.octofeed.ui.viewmodels.FeedUiState
 import com.vishnu.octofeed.ui.viewmodels.FeedViewModel
@@ -55,11 +54,12 @@ fun FeedScreen(
                     Column {
                         Text(
                             text = "OctoFeed",
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = "@$userName",
-                            fontSize = 12.sp,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -79,15 +79,16 @@ fun FeedScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Box(
             modifier = modifier
                 .fillMaxSize()
-                .padding(paddingValues)
         ) {
             when (val state = uiState) {
                 is FeedUiState.Loading -> {
@@ -97,14 +98,15 @@ fun FeedScreen(
                 is FeedUiState.Success -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 8.dp)
+                        contentPadding = PaddingValues(vertical = 12.dp)
                     ) {
                         item {
                             Text(
                                 text = "Recent Activity",
-                                fontSize = 20.sp,
+                                style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(16.dp)
+                                color = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             )
                         }
 
@@ -151,10 +153,14 @@ private fun LoadingContent() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(
+                modifier = Modifier.size(48.dp),
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = 4.dp
+            )
             Text(
                 text = "Loading your feed...",
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -174,11 +180,11 @@ private fun ErrorContent(message: String, onRetry: () -> Unit) {
         ) {
             Text(
                 text = "😕",
-                fontSize = 48.sp
+                style = MaterialTheme.typography.displayLarge
             )
             Text(
                 text = message,
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -189,7 +195,10 @@ private fun ErrorContent(message: String, onRetry: () -> Unit) {
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Retry")
+                Text(
+                    text = "Retry",
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
         }
     }
