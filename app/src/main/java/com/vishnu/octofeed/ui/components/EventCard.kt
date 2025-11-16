@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Person
@@ -19,16 +20,19 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.vishnu.octofeed.data.models.FeedEvent
+import com.vishnu.octofeed.data.models.RepoDetails
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -104,6 +108,9 @@ private fun StarEventContent(event: FeedEvent.StarEvent) {
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.primary
     )
+    event.repoDetails?.let { details ->
+        RepoDetailsContent(details)
+    }
 }
 
 @Composable
@@ -126,6 +133,9 @@ private fun ForkEventContent(event: FeedEvent.ForkEvent) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+    event.repoDetails?.let { details ->
+        RepoDetailsContent(details)
+    }
 }
 
 @Composable
@@ -141,6 +151,9 @@ private fun CreateRepoEventContent(event: FeedEvent.CreateRepoEvent) {
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.primary
     )
+    event.repoDetails?.let { details ->
+        RepoDetailsContent(details)
+    }
 }
 
 @Composable
@@ -162,6 +175,9 @@ private fun ReleaseEventContent(event: FeedEvent.ReleaseEvent) {
             fontSize = 12.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+    event.repoDetails?.let { details ->
+        RepoDetailsContent(details)
     }
 }
 
@@ -198,6 +214,163 @@ private fun EventIcon(event: FeedEvent) {
             tint = tint,
             modifier = Modifier.size(20.dp)
         )
+    }
+}
+
+@Composable
+private fun RepoDetailsContent(details: RepoDetails) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Description
+            details.description?.let { desc ->
+                if (desc.isNotBlank()) {
+                    Text(
+                        text = desc,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Stats row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Language
+                details.language?.let { lang ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(getLanguageColor(lang))
+                        )
+                        Text(
+                            text = lang,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Stars
+                if (details.stargazersCount > 0) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = "Stars",
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = formatCount(details.stargazersCount),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Forks
+                if (details.forksCount > 0) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Forks",
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
+                        Text(
+                            text = formatCount(details.forksCount),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Topics
+            if (details.topics.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    details.topics.take(3).forEach { topic ->
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = topic,
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    if (details.topics.size > 3) {
+                        Text(
+                            text = "+${details.topics.size - 3}",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun formatCount(count: Int): String {
+    return when {
+        count >= 1000000 -> String.format("%.1fM", count / 1000000.0)
+        count >= 1000 -> String.format("%.1fk", count / 1000.0)
+        else -> count.toString()
+    }
+}
+
+private fun getLanguageColor(language: String): androidx.compose.ui.graphics.Color {
+    // Common language colors based on GitHub's color scheme
+    return when (language.lowercase()) {
+        "kotlin" -> androidx.compose.ui.graphics.Color(0xFFA97BFF)
+        "java" -> androidx.compose.ui.graphics.Color(0xFFB07219)
+        "javascript" -> androidx.compose.ui.graphics.Color(0xFFF1E05A)
+        "typescript" -> androidx.compose.ui.graphics.Color(0xFF2B7489)
+        "python" -> androidx.compose.ui.graphics.Color(0xFF3572A5)
+        "go" -> androidx.compose.ui.graphics.Color(0xFF00ADD8)
+        "rust" -> androidx.compose.ui.graphics.Color(0xFFDEA584)
+        "swift" -> androidx.compose.ui.graphics.Color(0xFFFFAC45)
+        "c++" -> androidx.compose.ui.graphics.Color(0xFFF34B7D)
+        "c" -> androidx.compose.ui.graphics.Color(0xFF555555)
+        "c#" -> androidx.compose.ui.graphics.Color(0xFF178600)
+        "ruby" -> androidx.compose.ui.graphics.Color(0xFF701516)
+        "php" -> androidx.compose.ui.graphics.Color(0xFF4F5D95)
+        "dart" -> androidx.compose.ui.graphics.Color(0xFF00B4AB)
+        "shell" -> androidx.compose.ui.graphics.Color(0xFF89E051)
+        "html" -> androidx.compose.ui.graphics.Color(0xFFE34C26)
+        "css" -> androidx.compose.ui.graphics.Color(0xFF563D7C)
+        else -> androidx.compose.ui.graphics.Color(0xFF858585)
     }
 }
 

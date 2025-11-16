@@ -38,6 +38,34 @@ data class Repo(
     val url: String
 )
 
+/**
+ * Detailed Repository information
+ */
+@Serializable
+data class RepoDetails(
+    val id: Long,
+    val name: String,
+    @SerialName("full_name")
+    val fullName: String,
+    val description: String? = null,
+    val language: String? = null,
+    @SerialName("stargazers_count")
+    val stargazersCount: Int = 0,
+    @SerialName("forks_count")
+    val forksCount: Int = 0,
+    @SerialName("open_issues_count")
+    val openIssuesCount: Int = 0,
+    @SerialName("html_url")
+    val htmlUrl: String,
+    @SerialName("created_at")
+    val createdAt: String? = null,
+    @SerialName("updated_at")
+    val updatedAt: String? = null,
+    val topics: List<String> = emptyList(),
+    @SerialName("default_branch")
+    val defaultBranch: String? = null
+)
+
 @Serializable
 data class Payload(
     val action: String? = null,
@@ -102,7 +130,8 @@ sealed class FeedEvent {
         override val id: String,
         override val actor: Actor,
         override val timestamp: String,
-        val repo: Repo
+        val repo: Repo,
+        val repoDetails: RepoDetails? = null
     ) : FeedEvent()
 
     data class ForkEvent(
@@ -110,14 +139,16 @@ sealed class FeedEvent {
         override val actor: Actor,
         override val timestamp: String,
         val repo: Repo,
-        val forkedRepo: String?
+        val forkedRepo: String?,
+        val repoDetails: RepoDetails? = null
     ) : FeedEvent()
 
     data class CreateRepoEvent(
         override val id: String,
         override val actor: Actor,
         override val timestamp: String,
-        val repo: Repo
+        val repo: Repo,
+        val repoDetails: RepoDetails? = null
     ) : FeedEvent()
 
     data class ReleaseEvent(
@@ -126,7 +157,8 @@ sealed class FeedEvent {
         override val timestamp: String,
         val repo: Repo,
         val releaseName: String,
-        val tagName: String
+        val tagName: String,
+        val repoDetails: RepoDetails? = null
     ) : FeedEvent()
 }
 

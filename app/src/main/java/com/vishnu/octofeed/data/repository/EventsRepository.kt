@@ -5,6 +5,7 @@ import com.vishnu.octofeed.data.api.GitHubApiService
 import com.vishnu.octofeed.data.models.FeedEvent
 import com.vishnu.octofeed.data.models.GitHubEvent
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 
 class EventsRepository(
@@ -46,7 +47,10 @@ class EventsRepository(
             // Filter and convert to FeedEvents
             val feedEvents = processEvents(followingEvents)
 
-            Result.success(feedEvents)
+            // Fetch repository details for events with repos
+            val enrichedEvents = enrichEventsWithRepoDetails(feedEvents)
+
+            Result.success(enrichedEvents)
         } catch (e: Exception) {
             Log.e("EventsRepository", "Error fetching events", e)
             Result.failure(e)
@@ -128,6 +132,58 @@ class EventsRepository(
         }
 
         return feedEvents.sortedByDescending { it.timestamp }
+    }
+
+    /**
+     * Enrich events with repository details
+     */
+    private suspend fun enrichEventsWithRepoDetails(events: List<FeedEvent>): List<FeedEvent> =
+        coroutineScope {
+            events.map { event ->
+                async {
+                    when (event) {
+                        is FeedEvent.StarEvent -> {
+                            val repoDetails = fetchRepoDetails(event.repo.name)
+                            event.copy(repoDetails = repoDetails)
+                        }
+
+                        is FeedEvent.ForkEvent -> {
+                            val repoDetails = fetchRepoDetails(event.repo.name)
+                            event.copy(repoDetails = repoDetails)
+                        }
+
+                        is FeedEvent.CreateRepoEvent -> {
+                            val repoDetails = fetchRepoDetails(event.repo.name)
+                            event.copy(repoDetails = repoDetails)
+                        }
+
+                        is FeedEvent.ReleaseEvent -> {
+                            val repoDetails = fetchRepoDetails(event.repo.name)
+                            event.copy(repoDetails = repoDetails)
+                        }
+
+                        else -> event
+                    }
+                }
+            }.awaitAll()
+        }
+
+    /**
+     * Fetch repository details from API
+     */
+    private suspend fun fetchRepoDetails(repoFullName: String): com.vishnu.octofeed.data.models.RepoDetails? {
+        return try {
+            val parts = repoFullName.split("/")
+            if (parts.size == 2) {
+                val (owner, repo) = parts
+                apiService.getRepositoryDetails(owner, repo).getOrNull()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("EventsRepository", "Error fetching repo details for $repoFullName", e)
+            null
+        }
     }
 }
 

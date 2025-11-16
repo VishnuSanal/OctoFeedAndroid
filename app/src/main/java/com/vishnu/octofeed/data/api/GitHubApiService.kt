@@ -1,6 +1,7 @@
 package com.vishnu.octofeed.data.api
 
 import com.vishnu.octofeed.data.models.GitHubEvent
+import com.vishnu.octofeed.data.models.RepoDetails
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -96,6 +97,39 @@ class GitHubApiService(private val accessToken: String) {
 
                     val events = json.decodeFromString<List<GitHubEvent>>(responseBody)
                     Result.success(events)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    /**
+     * Get detailed repository information
+     * @param owner Repository owner username
+     * @param repo Repository name
+     */
+    suspend fun getRepositoryDetails(owner: String, repo: String): Result<RepoDetails> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("$BASE_URL/repos/$owner/$repo")
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Accept", "application/vnd.github+json")
+                    .addHeader("X-GitHub-Api-Version", "2022-11-28")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@withContext Result.failure(
+                            IOException("Failed to get repository details: ${response.code} - ${response.message}")
+                        )
+                    }
+
+                    val responseBody = response.body?.string()
+                        ?: return@withContext Result.failure(IOException("Empty response body"))
+
+                    val repoDetails = json.decodeFromString<RepoDetails>(responseBody)
+                    Result.success(repoDetails)
                 }
             } catch (e: Exception) {
                 Result.failure(e)
