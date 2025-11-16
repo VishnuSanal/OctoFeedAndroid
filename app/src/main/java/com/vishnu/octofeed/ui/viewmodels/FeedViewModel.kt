@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vishnu.octofeed.data.api.GitHubApiService
+import com.vishnu.octofeed.data.cache.FollowersCache
 import com.vishnu.octofeed.data.models.FeedEvent
 import com.vishnu.octofeed.data.repository.EventsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +26,8 @@ class FeedViewModel(
 ) : ViewModel() {
 
     private val apiService = GitHubApiService(accessToken, cacheDir)
-    private val repository = EventsRepository(apiService, username)
+    private val followersCache = FollowersCache(cacheDir)
+    private val repository = EventsRepository(apiService, username, followersCache)
 
     private val _uiState = MutableStateFlow<FeedUiState>(FeedUiState.Loading)
     val uiState: StateFlow<FeedUiState> = _uiState.asStateFlow()
@@ -45,7 +47,6 @@ class FeedViewModel(
                 if (events.isEmpty()) {
                     FeedUiState.Error("No recent activity from people you follow")
                 } else {
-                    Log.e("vishnu", "loadEvents: $events")
                     FeedUiState.Success(events)
                 }
             } else {

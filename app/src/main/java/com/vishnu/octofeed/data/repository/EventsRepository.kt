@@ -2,6 +2,8 @@ package com.vishnu.octofeed.data.repository
 
 import android.util.Log
 import com.vishnu.octofeed.data.api.GitHubApiService
+import com.vishnu.octofeed.data.cache.FollowersCache
+import com.vishnu.octofeed.data.models.Actor
 import com.vishnu.octofeed.data.models.FeedEvent
 import com.vishnu.octofeed.data.models.GitHubEvent
 import kotlinx.coroutines.async
@@ -10,7 +12,8 @@ import kotlinx.coroutines.coroutineScope
 
 class EventsRepository(
     private val apiService: GitHubApiService,
-    private val currentUsername: String
+    private val currentUsername: String,
+    private val followersCache: FollowersCache
 ) {
 
     /**
@@ -21,8 +24,12 @@ class EventsRepository(
             // Fetch list of users you're following
             val followingDeferred = async { apiService.getUserFollowing(currentUsername) }
 
+            // Fetch current followers to detect new follows
+            val followersDeferred = async { apiService.getUserFollowers(currentUsername) }
+
             // Wait for initial results
             val followingResult = followingDeferred.await()
+            val followersResult = followersDeferred.await()
 
             // Get list of users being followed
             val following = followingResult.getOrNull() ?: emptyList()
@@ -45,7 +52,38 @@ class EventsRepository(
             }
 
             // Filter and convert to FeedEvents
-            val feedEvents = processEvents(followingEvents)
+            val feedEvents = processEvents(followingEvents).toMutableList()
+
+            // Process followers and detect new follows
+            val followers = followersResult.getOrNull()
+            if (followers != null) {
+                val cachedFollowers = followers.map {
+                    FollowersCache.CachedFollower(
+                        login = it.login,
+                        avatarUrl = it.avatarUrl,
+                        id = it.id
+                    )
+                }
+                val newFollowers = followersCache.detectNewFollowers(cachedFollowers)
+
+                // Create FollowEvents for new followers
+                newFollowers.forEach { follower ->
+                    feedEvents.add(
+                        FeedEvent.FollowEvent(
+                            id = "follow_${follower.id}_${follower.timestamp}",
+                            actor = Actor(
+                                id = follower.id,
+                                login = follower.login,
+                                displayLogin = follower.login,
+                                gravatarId = null,
+                                url = "https://github.com/${follower.login}",
+                                avatarUrl = follower.avatarUrl
+                            ),
+                            timestamp = formatTimestamp(follower.timestamp)
+                        )
+                    )
+                }
+            }
 
             // Fetch repository details for events with repos
             val enrichedEvents = enrichEventsWithRepoDetails(feedEvents)
@@ -55,6 +93,16 @@ class EventsRepository(
             Log.e("EventsRepository", "Error fetching events", e)
             Result.failure(e)
         }
+    }
+
+    /**
+     * Format timestamp to ISO 8601 format
+     */
+    private fun formatTimestamp(timestamp: Long): String {
+        val date = java.util.Date(timestamp)
+        val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US)
+        format.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        return format.format(date)
     }
 
     /**

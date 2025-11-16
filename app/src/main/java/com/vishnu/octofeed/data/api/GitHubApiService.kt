@@ -81,6 +81,49 @@ class GitHubApiService(
         }
 
     /**
+     * Get list of users following the authenticated user
+     */
+    @kotlinx.serialization.Serializable
+    data class FollowerInfo(
+        val login: String,
+        @kotlinx.serialization.SerialName("avatar_url")
+        val avatarUrl: String,
+        val id: Long
+    )
+
+    suspend fun getUserFollowers(
+        username: String,
+        page: Int = 1,
+        perPage: Int = 100
+    ): Result<List<FollowerInfo>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("$BASE_URL/users/$username/followers?page=$page&per_page=$perPage")
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Accept", "application/vnd.github+json")
+                    .addHeader("X-GitHub-Api-Version", "2022-11-28")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@withContext Result.failure(
+                            IOException("Failed to get followers list: ${response.code}")
+                        )
+                    }
+
+                    val responseBody = response.body?.string()
+                        ?: return@withContext Result.failure(IOException("Empty response body"))
+
+                    val followers = json.decodeFromString<List<FollowerInfo>>(responseBody)
+                    Result.success(followers)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    /**
      * Get public events performed by a user
      */
     suspend fun getUserEvents(
