@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.File
 
 sealed class FeedUiState {
     object Loading : FeedUiState()
@@ -19,10 +20,11 @@ sealed class FeedUiState {
 
 class FeedViewModel(
     private val accessToken: String,
-    private val username: String
+    private val username: String,
+    private val cacheDir: File
 ) : ViewModel() {
 
-    private val apiService = GitHubApiService(accessToken)
+    private val apiService = GitHubApiService(accessToken, cacheDir)
     private val repository = EventsRepository(apiService, username)
 
     private val _uiState = MutableStateFlow<FeedUiState>(FeedUiState.Loading)

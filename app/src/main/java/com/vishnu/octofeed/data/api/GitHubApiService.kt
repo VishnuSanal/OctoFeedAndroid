@@ -5,13 +5,25 @@ import com.vishnu.octofeed.data.models.RepoDetails
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.File
 import java.io.IOException
 
-class GitHubApiService(private val accessToken: String) {
+class GitHubApiService(
+    private val accessToken: String,
+    private val cacheDir: File
+) {
 
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .cache(
+            Cache(
+                directory = File(cacheDir, "http_api_cache"),
+                maxSize = 100L * 1024L * 1024L // 50 MiB
+            )
+        )
+        .build()
     private val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true

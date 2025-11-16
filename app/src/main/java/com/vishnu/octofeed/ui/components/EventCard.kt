@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.vishnu.octofeed.data.models.FeedEvent
 import com.vishnu.octofeed.data.models.RepoDetails
 import java.text.SimpleDateFormat
@@ -76,7 +77,10 @@ fun EventCard(
         ) {
             // Avatar - clickable to user profile
             AsyncImage(
-                model = event.actor.avatarUrl,
+                model = ImageRequest.Builder(context)
+                    .data(event.actor.avatarUrl)
+                    .crossfade(true)
+                    .build(),
                 contentDescription = "${event.actor.login} avatar",
                 modifier = Modifier
                     .size(48.dp)

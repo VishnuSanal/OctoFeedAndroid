@@ -20,7 +20,8 @@ fun HomeScreen(
     val viewModel = remember {
         FeedViewModel(
             accessToken = accessToken,
-            username = userName
+            username = userName,
+            cacheDir = context.getCacheDir(),
         )
     }
 
