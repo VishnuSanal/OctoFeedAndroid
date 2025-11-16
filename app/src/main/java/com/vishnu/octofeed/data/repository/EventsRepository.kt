@@ -1,0 +1,133 @@
+package com.vishnu.octofeed.data.repository
+
+import android.util.Log
+import com.vishnu.octofeed.data.api.GitHubApiService
+import com.vishnu.octofeed.data.models.FeedEvent
+import com.vishnu.octofeed.data.models.GitHubEvent
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+
+class EventsRepository(
+    private val apiService: GitHubApiService,
+    private val currentUsername: String
+) {
+
+    /**
+     * Fetch and process all relevant events for the feed
+     */
+    suspend fun getEvents(username: String): Result<List<FeedEvent>> = coroutineScope {
+        try {
+            // Fetch list of users you're following
+            val followingDeferred = async { apiService.getUserFollowing(currentUsername) }
+
+            // Wait for initial results
+            val followingResult = followingDeferred.await()
+
+            // Get list of users being followed
+            val following = followingResult.getOrNull() ?: emptyList()
+
+            // add own username to fetch their events too
+            val users = following + username
+
+            // Fetch events from each user you follow (in parallel, limited to prevent rate limiting)
+            val followingEvents = mutableListOf<GitHubEvent>()
+
+            users.chunked(5).forEach { chunk ->
+                val eventResults = chunk.map { username ->
+                    async { apiService.getUserEvents(username, perPage = 10) }
+                }
+                eventResults.forEach { deferred ->
+                    deferred.await().getOrNull()?.let { events ->
+                        followingEvents.addAll(events)
+                    }
+                }
+            }
+
+            // Filter and convert to FeedEvents
+            val feedEvents = processEvents(followingEvents)
+
+            Result.success(feedEvents)
+        } catch (e: Exception) {
+            Log.e("EventsRepository", "Error fetching events", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Process raw GitHub events into FeedEvents
+     */
+    private fun processEvents(events: List<GitHubEvent>): List<FeedEvent> {
+        val feedEvents = mutableListOf<FeedEvent>()
+
+        for (event in events) {
+            when (event.type) {
+                // Someone you follow starred a repo
+                "WatchEvent" -> {
+                    if (event.payload?.action == "started") {
+                        feedEvents.add(
+                            FeedEvent.StarEvent(
+                                id = event.id,
+                                actor = event.actor,
+                                timestamp = event.createdAt,
+                                repo = event.repo
+                            )
+                        )
+                    }
+                }
+
+                // Someone you follow forked a repo
+                "ForkEvent" -> {
+                    feedEvents.add(
+                        FeedEvent.ForkEvent(
+                            id = event.id,
+                            actor = event.actor,
+                            timestamp = event.createdAt,
+                            repo = event.repo,
+                            forkedRepo = event.payload?.forkee?.fullName
+                        )
+                    )
+                }
+
+                // Someone you follow created a repo or branch
+                "CreateEvent" -> {
+                    // Only show repository creation, not branch creation
+                    if (event.payload?.refType == "repository") {
+                        feedEvents.add(
+                            FeedEvent.CreateRepoEvent(
+                                id = event.id,
+                                actor = event.actor,
+                                timestamp = event.createdAt,
+                                repo = event.repo
+                            )
+                        )
+                    }
+                }
+
+                // Someone you follow created a release
+                "ReleaseEvent" -> {
+                    if (event.payload?.action == "published") {
+                        val release = event.payload.release
+                        if (release != null) {
+                            feedEvents.add(
+                                FeedEvent.ReleaseEvent(
+                                    id = event.id,
+                                    actor = event.actor,
+                                    timestamp = event.createdAt,
+                                    repo = event.repo,
+                                    releaseName = release.name ?: release.tagName,
+                                    tagName = release.tagName
+                                )
+                            )
+                        }
+                    }
+                }
+
+                // Note: GitHub API doesn't provide FollowEvent in the events endpoint
+                // We'll need to use a different approach or API for that
+            }
+        }
+
+        return feedEvents.sortedByDescending { it.timestamp }
+    }
+}
+

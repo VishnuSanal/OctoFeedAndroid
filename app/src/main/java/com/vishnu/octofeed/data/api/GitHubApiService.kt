@@ -1,0 +1,105 @@
+package com.vishnu.octofeed.data.api
+
+import com.vishnu.octofeed.data.models.GitHubEvent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.IOException
+
+class GitHubApiService(private val accessToken: String) {
+
+    private val client = OkHttpClient()
+    private val json = Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+    }
+
+    companion object {
+        private const val BASE_URL = "https://api.github.com"
+    }
+
+    /**
+     * Get list of users the authenticated user is following
+     */
+    suspend fun getUserFollowing(
+        username: String,
+        page: Int = 1,
+        perPage: Int = 100
+    ): Result<List<String>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("$BASE_URL/users/$username/following?page=$page&per_page=$perPage")
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Accept", "application/vnd.github+json")
+                    .addHeader("X-GitHub-Api-Version", "2022-11-28")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@withContext Result.failure(
+                            IOException("Failed to get following list: ${response.code}")
+                        )
+                    }
+
+                    val responseBody = response.body?.string()
+                        ?: return@withContext Result.failure(IOException("Empty response body"))
+
+                    val followingArray = json.parseToJsonElement(responseBody)
+                    val followingList = mutableListOf<String>()
+
+                    if (followingArray is kotlinx.serialization.json.JsonArray) {
+                        followingArray.forEach { element ->
+                            val obj = element as? kotlinx.serialization.json.JsonObject
+                            val login = obj?.get("login")?.let {
+                                (it as? kotlinx.serialization.json.JsonPrimitive)?.content
+                            }
+                            login?.let { followingList.add(it) }
+                        }
+                    }
+
+                    Result.success(followingList)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    /**
+     * Get public events performed by a user
+     */
+    suspend fun getUserEvents(
+        username: String,
+        page: Int = 1,
+        perPage: Int = 30
+    ): Result<List<GitHubEvent>> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("$BASE_URL/users/$username/events?page=$page&per_page=$perPage")
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Accept", "application/vnd.github+json")
+                    .addHeader("X-GitHub-Api-Version", "2022-11-28")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@withContext Result.failure(
+                            IOException("Failed to get user events: ${response.code} - ${response.message}")
+                        )
+                    }
+
+                    val responseBody = response.body?.string()
+                        ?: return@withContext Result.failure(IOException("Empty response body"))
+
+                    val events = json.decodeFromString<List<GitHubEvent>>(responseBody)
+                    Result.success(events)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+}
+
