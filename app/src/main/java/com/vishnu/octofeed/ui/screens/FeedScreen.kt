@@ -112,7 +112,15 @@ fun FeedScreen(
                             items = state.events,
                             key = { it.id }
                         ) { event ->
-                            EventCard(event = event)
+                            EventCard(
+                                event = event,
+                                onStarToggle = { repoName, isStarred, callback ->
+                                    viewModel.toggleStar(repoName, isStarred, callback)
+                                },
+                                onCheckStarStatus = { repoName, callback ->
+                                    viewModel.checkStarStatus(repoName, callback)
+                                }
+                            )
                         }
 
                         // Footer spacing

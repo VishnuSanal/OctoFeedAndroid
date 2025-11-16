@@ -55,5 +55,36 @@ class FeedViewModel(
     fun refreshEvents() {
         loadEvents()
     }
+
+    fun toggleStar(
+        repoFullName: String,
+        isCurrentlyStarred: Boolean,
+        onComplete: (Boolean) -> Unit
+    ) {
+        viewModelScope.launch {
+            val result = if (isCurrentlyStarred) {
+                repository.unstarRepository(repoFullName)
+            } else {
+                repository.starRepository(repoFullName)
+            }
+
+            if (result.isSuccess) {
+                onComplete(!isCurrentlyStarred)
+            } else {
+                Log.e(
+                    "FeedViewModel",
+                    "Failed to toggle star: ${result.exceptionOrNull()?.message}"
+                )
+                onComplete(isCurrentlyStarred) // Keep current state on failure
+            }
+        }
+    }
+
+    fun checkStarStatus(repoFullName: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val result = repository.isRepositoryStarred(repoFullName)
+            onResult(result.getOrDefault(false))
+        }
+    }
 }
 

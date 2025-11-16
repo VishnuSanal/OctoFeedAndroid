@@ -135,5 +135,71 @@ class GitHubApiService(private val accessToken: String) {
                 Result.failure(e)
             }
         }
+
+    /**
+     * Check if a repository is starred by the authenticated user
+     */
+    suspend fun isRepositoryStarred(owner: String, repo: String): Result<Boolean> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("$BASE_URL/user/starred/$owner/$repo")
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Accept", "application/vnd.github+json")
+                    .addHeader("X-GitHub-Api-Version", "2022-11-28")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    // 204 = starred, 404 = not starred
+                    Result.success(response.code == 204)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    /**
+     * Star a repository
+     */
+    suspend fun starRepository(owner: String, repo: String): Result<Boolean> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("$BASE_URL/user/starred/$owner/$repo")
+                    .put(okhttp3.RequestBody.create(null, ""))
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Accept", "application/vnd.github+json")
+                    .addHeader("X-GitHub-Api-Version", "2022-11-28")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    Result.success(response.isSuccessful)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    /**
+     * Unstar a repository
+     */
+    suspend fun unstarRepository(owner: String, repo: String): Result<Boolean> =
+        withContext(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("$BASE_URL/user/starred/$owner/$repo")
+                    .delete()
+                    .addHeader("Authorization", "Bearer $accessToken")
+                    .addHeader("Accept", "application/vnd.github+json")
+                    .addHeader("X-GitHub-Api-Version", "2022-11-28")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    Result.success(response.isSuccessful)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
 }
 

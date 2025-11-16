@@ -1,6 +1,8 @@
 package com.vishnu.octofeed.ui.components
 
+import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,20 +18,30 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import com.vishnu.octofeed.data.models.FeedEvent
 import com.vishnu.octofeed.data.models.RepoDetails
@@ -39,7 +51,14 @@ import java.util.Locale
 import java.util.TimeZone
 
 @Composable
-fun EventCard(event: FeedEvent, modifier: Modifier = Modifier) {
+fun EventCard(
+    event: FeedEvent,
+    modifier: Modifier = Modifier,
+    onStarToggle: ((String, Boolean, (Boolean) -> Unit) -> Unit)? = null,
+    onCheckStarStatus: ((String, (Boolean) -> Unit) -> Unit)? = null
+) {
+    val context = LocalContext.current
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -55,13 +74,20 @@ fun EventCard(event: FeedEvent, modifier: Modifier = Modifier) {
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Avatar
+            // Avatar - clickable to user profile
             AsyncImage(
                 model = event.actor.avatarUrl,
                 contentDescription = "${event.actor.login} avatar",
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
+                    .clickable {
+                        val intent = Intent(
+                            Intent.ACTION_VIEW,
+                            "https://github.com/${event.actor.login}".toUri()
+                        )
+                        context.startActivity(intent)
+                    }
             )
 
             // Content
@@ -71,10 +97,29 @@ fun EventCard(event: FeedEvent, modifier: Modifier = Modifier) {
             ) {
                 // Event-specific content
                 when (event) {
-                    is FeedEvent.StarEvent -> StarEventContent(event)
-                    is FeedEvent.ForkEvent -> ForkEventContent(event)
-                    is FeedEvent.CreateRepoEvent -> CreateRepoEventContent(event)
-                    is FeedEvent.ReleaseEvent -> ReleaseEventContent(event)
+                    is FeedEvent.StarEvent -> StarEventContent(
+                        event,
+                        onStarToggle,
+                        onCheckStarStatus
+                    )
+
+                    is FeedEvent.ForkEvent -> ForkEventContent(
+                        event,
+                        onStarToggle,
+                        onCheckStarStatus
+                    )
+
+                    is FeedEvent.CreateRepoEvent -> CreateRepoEventContent(
+                        event,
+                        onStarToggle,
+                        onCheckStarStatus
+                    )
+
+                    is FeedEvent.ReleaseEvent -> ReleaseEventContent(
+                        event,
+                        onStarToggle,
+                        onCheckStarStatus
+                    )
                     is FeedEvent.FollowEvent -> FollowEventContent(event)
                 }
 
@@ -93,7 +138,13 @@ fun EventCard(event: FeedEvent, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun StarEventContent(event: FeedEvent.StarEvent) {
+private fun StarEventContent(
+    event: FeedEvent.StarEvent,
+    onStarToggle: ((String, Boolean, (Boolean) -> Unit) -> Unit)? = null,
+    onCheckStarStatus: ((String, (Boolean) -> Unit) -> Unit)? = null
+) {
+    val context = LocalContext.current
+
     Text(
         text = buildString {
             append(event.actor.login)
@@ -106,15 +157,25 @@ private fun StarEventContent(event: FeedEvent.StarEvent) {
         text = event.repo.name,
         fontSize = 16.sp,
         fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.clickable {
+            val intent = Intent(Intent.ACTION_VIEW, "https://github.com/${event.repo.name}".toUri())
+            context.startActivity(intent)
+        }
     )
     event.repoDetails?.let { details ->
-        RepoDetailsContent(details)
+        RepoDetailsContent(details, onStarToggle, onCheckStarStatus)
     }
 }
 
 @Composable
-private fun ForkEventContent(event: FeedEvent.ForkEvent) {
+private fun ForkEventContent(
+    event: FeedEvent.ForkEvent,
+    onStarToggle: ((String, Boolean, (Boolean) -> Unit) -> Unit)? = null,
+    onCheckStarStatus: ((String, (Boolean) -> Unit) -> Unit)? = null
+) {
+    val context = LocalContext.current
+
     Text(
         text = "${event.actor.login} forked",
         fontSize = 14.sp,
@@ -124,7 +185,11 @@ private fun ForkEventContent(event: FeedEvent.ForkEvent) {
         text = event.repo.name,
         fontSize = 16.sp,
         fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.clickable {
+            val intent = Intent(Intent.ACTION_VIEW, "https://github.com/${event.repo.name}".toUri())
+            context.startActivity(intent)
+        }
     )
     event.forkedRepo?.let {
         Text(
@@ -134,12 +199,18 @@ private fun ForkEventContent(event: FeedEvent.ForkEvent) {
         )
     }
     event.repoDetails?.let { details ->
-        RepoDetailsContent(details)
+        RepoDetailsContent(details, onStarToggle, onCheckStarStatus)
     }
 }
 
 @Composable
-private fun CreateRepoEventContent(event: FeedEvent.CreateRepoEvent) {
+private fun CreateRepoEventContent(
+    event: FeedEvent.CreateRepoEvent,
+    onStarToggle: ((String, Boolean, (Boolean) -> Unit) -> Unit)? = null,
+    onCheckStarStatus: ((String, (Boolean) -> Unit) -> Unit)? = null
+) {
+    val context = LocalContext.current
+
     Text(
         text = "${event.actor.login} created repository",
         fontSize = 14.sp,
@@ -149,15 +220,25 @@ private fun CreateRepoEventContent(event: FeedEvent.CreateRepoEvent) {
         text = event.repo.name,
         fontSize = 16.sp,
         fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.clickable {
+            val intent = Intent(Intent.ACTION_VIEW, "https://github.com/${event.repo.name}".toUri())
+            context.startActivity(intent)
+        }
     )
     event.repoDetails?.let { details ->
-        RepoDetailsContent(details)
+        RepoDetailsContent(details, onStarToggle, onCheckStarStatus)
     }
 }
 
 @Composable
-private fun ReleaseEventContent(event: FeedEvent.ReleaseEvent) {
+private fun ReleaseEventContent(
+    event: FeedEvent.ReleaseEvent,
+    onStarToggle: ((String, Boolean, (Boolean) -> Unit) -> Unit)? = null,
+    onCheckStarStatus: ((String, (Boolean) -> Unit) -> Unit)? = null
+) {
+    val context = LocalContext.current
+
     Text(
         text = "${event.actor.login} released ${event.tagName} in",
         fontSize = 14.sp,
@@ -167,7 +248,11 @@ private fun ReleaseEventContent(event: FeedEvent.ReleaseEvent) {
         text = event.repo.name,
         fontSize = 16.sp,
         fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.clickable {
+            val intent = Intent(Intent.ACTION_VIEW, "https://github.com/${event.repo.name}".toUri())
+            context.startActivity(intent)
+        }
     )
     if (event.releaseName != event.tagName) {
         Text(
@@ -177,7 +262,7 @@ private fun ReleaseEventContent(event: FeedEvent.ReleaseEvent) {
         )
     }
     event.repoDetails?.let { details ->
-        RepoDetailsContent(details)
+        RepoDetailsContent(details, onStarToggle, onCheckStarStatus)
     }
 }
 
@@ -218,7 +303,21 @@ private fun EventIcon(event: FeedEvent) {
 }
 
 @Composable
-private fun RepoDetailsContent(details: RepoDetails) {
+private fun RepoDetailsContent(
+    details: RepoDetails,
+    onStarToggle: ((String, Boolean, (Boolean) -> Unit) -> Unit)? = null,
+    onCheckStarStatus: ((String, (Boolean) -> Unit) -> Unit)? = null
+) {
+    var isStarred by remember { mutableStateOf<Boolean?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    // Check star status on mount
+    LaunchedEffect(details.fullName) {
+        onCheckStarStatus?.invoke(details.fullName) { starred ->
+            isStarred = starred
+        }
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -230,16 +329,59 @@ private fun RepoDetailsContent(details: RepoDetails) {
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Description
-            details.description?.let { desc ->
-                if (desc.isNotBlank()) {
-                    Text(
-                        text = desc,
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+            // Header row with star button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Description
+                details.description?.let { desc ->
+                    if (desc.isNotBlank()) {
+                        Text(
+                            text = desc,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                // Star button
+                if (onStarToggle != null) {
+                    IconButton(
+                        onClick = {
+                            isStarred?.let { currentState ->
+                                isLoading = true
+                                onStarToggle(details.fullName, currentState) { newState ->
+                                    isStarred = newState
+                                    isLoading = false
+                                }
+                            }
+                        },
+                        enabled = isStarred != null && !isLoading
+                    ) {
+                        when {
+                            isLoading -> CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+
+                            isStarred == true -> Icon(
+                                imageVector = Icons.Filled.Star,
+                                contentDescription = "Unstar",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+
+                            else -> Icon(
+                                imageVector = Icons.Outlined.Star,
+                                contentDescription = "Star",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
 

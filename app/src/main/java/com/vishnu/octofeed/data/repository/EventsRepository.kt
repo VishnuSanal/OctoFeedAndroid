@@ -185,5 +185,59 @@ class EventsRepository(
             null
         }
     }
+
+    /**
+     * Check if a repository is starred
+     */
+    suspend fun isRepositoryStarred(repoFullName: String): Result<Boolean> {
+        return try {
+            val parts = repoFullName.split("/")
+            if (parts.size == 2) {
+                val (owner, repo) = parts
+                apiService.isRepositoryStarred(owner, repo)
+            } else {
+                Result.success(false)
+            }
+        } catch (e: Exception) {
+            Log.e("EventsRepository", "Error checking star status for $repoFullName", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Star a repository
+     */
+    suspend fun starRepository(repoFullName: String): Result<Boolean> {
+        return try {
+            val parts = repoFullName.split("/")
+            if (parts.size == 2) {
+                val (owner, repo) = parts
+                apiService.starRepository(owner, repo)
+            } else {
+                Result.failure(IllegalArgumentException("Invalid repository name"))
+            }
+        } catch (e: Exception) {
+            Log.e("EventsRepository", "Error starring repository $repoFullName", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Unstar a repository
+     */
+    suspend fun unstarRepository(repoFullName: String): Result<Boolean> {
+        return try {
+            val parts = repoFullName.split("/")
+            if (parts.size == 2) {
+                val (owner, repo) = parts
+                apiService.unstarRepository(owner, repo)
+            } else {
+                Result.failure(IllegalArgumentException("Invalid repository name"))
+            }
+        } catch (e: Exception) {
+            Log.e("EventsRepository", "Error unstarring repository $repoFullName", e)
+            Result.failure(e)
+        }
+    }
 }
 
