@@ -199,4 +199,7 @@ fabric.properties
 
 secrets.properties
 
+*.dm
+output-metadata.json
+
 # End of https://www.gitignore.io/api/android,androidstudio
